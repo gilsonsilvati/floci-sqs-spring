@@ -73,6 +73,57 @@ curl -X POST http://localhost:8080/pedidos \
   }'
 ```
 
+## Detalhes do SNS
+
+### Publicação de mensagens
+
+O `PedidoProducer` publica no SNS usando `SnsAsyncClient` diretamente (não via Spring Cloud AWS). O tópico é resolvido em tempo de execução buscando o ARN via `listTopics()`.
+
+Cada publicação inclui um **message attribute** chamado `tipo`, que é a chave usada pelo FilterPolicy para rotear a mensagem para a fila correta:
+
+```java
+snsClient.publish(PublishRequest.builder()
+    .topicArn(topicArn)
+    .message(payload)           // JSON de PedidoMessage
+    .messageAttributes(Map.of(
+        "tipo", MessageAttributeValue.builder()
+            .dataType("String")
+            .stringValue(pedido.tipo().name())  // "NOVO" ou "CANCELAMENTO"
+            .build()))
+    .build());
+```
+
+### Infraestrutura criada no startup
+
+O `SqsQueueInitializer` executa ao iniciar a aplicação e cria toda a infraestrutura programaticamente, na seguinte ordem:
+
+1. Cria as filas SQS (`pedidos-novos` e `pedidos-cancelados`)
+2. Obtém os ARNs das filas
+3. Cria o tópico SNS (`pedidos-topic`)
+4. Configura uma IAM policy em cada fila permitindo que o SNS publique nela
+5. Cria as assinaturas SQS no tópico com FilterPolicy por `tipo`:
+   - `pedidos-novos` → `{"tipo": ["NOVO"]}`
+   - `pedidos-cancelados` → `{"tipo": ["CANCELAMENTO"]}`
+
+### Envelope SNS → SQS
+
+Quando o SNS entrega uma mensagem a uma fila SQS, ele **envolve o payload original em um envelope JSON**:
+
+```json
+{
+  "Type": "Notification",
+  "MessageId": "...",
+  "TopicArn": "arn:aws:sns:...",
+  "Message": "{\"pedidoId\":1,\"produto\":\"Laptop\",...}",
+  "Timestamp": "...",
+  "MessageAttributes": { ... }
+}
+```
+
+O campo `Message` contém o JSON original como **string escapada**. Por isso os consumers não podem desserializar diretamente o body da mensagem SQS como `PedidoMessage`.
+
+O `SnsEnvelopeExtractor` resolve isso: lê o `body` da mensagem SQS, faz parse do envelope e extrai o campo `Message` antes de desserializar para `PedidoMessage`.
+
 ## Limitação conhecida — Floci e SNS FilterPolicy
 
 O Floci **não implementa SNS FilterPolicy**. Ao publicar uma mensagem no tópico, ele entrega para **todas as filas inscritas**, ignorando silenciosamente os filtros configurados por atributo de mensagem.
