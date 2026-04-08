@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: floci-sqs-spring
+
+aws:
+  endpoint-override: http://localhost:4566
+  region:
+    static: us-east-1
+  credentials:
+    access-key: test
+    secret-key: test
+
+app:
+  sns:
+    topic-name: pedidos-topic
+  sqs:
+    queue-novos: pedidos-novos
+    queue-cancelados: pedidos-cancelados
