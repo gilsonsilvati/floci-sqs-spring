@@ -27,3 +27,6 @@ data/
 # Environment
 .env
 *.local
+
+# Claude
+.claude

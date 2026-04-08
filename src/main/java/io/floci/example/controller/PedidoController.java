@@ -1,6 +1,7 @@
-package io.floci.example.producer;
+package io.floci.example.controller;
 
 import io.floci.example.dto.PedidoMessage;
+import io.floci.example.producer.PedidoProducer;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
