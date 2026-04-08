@@ -73,6 +73,20 @@ curl -X POST http://localhost:8080/pedidos \
   }'
 ```
 
+## Limitação conhecida — Floci e SNS FilterPolicy
+
+O Floci **não implementa SNS FilterPolicy**. Ao publicar uma mensagem no tópico, ele entrega para **todas as filas inscritas**, ignorando silenciosamente os filtros configurados por atributo de mensagem.
+
+**Comportamento observado em ambiente local:**
+- `NovoPedidoConsumer` recebe pedidos `NOVO` e `CANCELAMENTO`
+- `CancelamentoPedidoConsumer` recebe pedidos `NOVO` e `CANCELAMENTO`
+
+**Em produção (AWS real) o roteamento funciona corretamente**, pois o SNS aplica o FilterPolicy e cada fila recebe apenas as mensagens cujo atributo `tipo` corresponde ao filtro configurado.
+
+**Alternativas para ambiente local com FilterPolicy funcional:**
+- Substituir o Floci pelo [LocalStack](https://localstack.cloud/) — suporte completo a SNS FilterPolicy
+- Implementar filtro no consumer, verificando o `tipo` da mensagem e descartando o que não corresponde
+
 ## Estrutura do projeto
 
 ```
